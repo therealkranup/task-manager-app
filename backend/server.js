@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
@@ -29,11 +29,11 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 const dbPath = process.env.NODE_ENV === 'production' 
   ? ':memory:' 
   : path.join(__dirname, 'tasks.db');
-const db = new Database(dbPath);
+const db = new sqlite3.Database(dbPath);
 
 // Create tasks table if it doesn't exist, and ensure user_id column exists
-try {
-  db.exec(`CREATE TABLE IF NOT EXISTS tasks (
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     description TEXT,
@@ -44,14 +44,8 @@ try {
   )`);
 
   // Try to add user_id if table existed without it (ignore error if already there)
-  try {
-    db.exec(`ALTER TABLE tasks ADD COLUMN user_id TEXT`);
-  } catch (e) {
-    // Column already exists, ignore error
-  }
-} catch (error) {
-  console.error('Database initialization error:', error);
-}
+  db.run(`ALTER TABLE tasks ADD COLUMN user_id TEXT`, () => {});
+});
 
 // Auth middleware: requires Bearer token, resolves Supabase user
 async function requireAuth(req, res, next) {
