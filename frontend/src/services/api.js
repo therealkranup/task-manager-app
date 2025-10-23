@@ -2,8 +2,7 @@ import axios from 'axios';
 
 // Production backend URL - pointing to Render deployment
 const PRODUCTION_API_URL = 'https://task-manager-app-tpdd.onrender.com/api';
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 
-  (process.env.NODE_ENV === 'production' ? PRODUCTION_API_URL : 'http://localhost:5000/api');
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || PRODUCTION_API_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
