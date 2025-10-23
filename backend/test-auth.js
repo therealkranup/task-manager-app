@@ -15,6 +15,17 @@ app.use(express.json());
 // Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
+// Simple health check
+app.get('/api/health', (req, res) => {
+  console.log('Health check requested');
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Test endpoint that shows all headers
 app.get('/api/test-headers', (req, res) => {
   console.log('=== HEADERS TEST ===');
@@ -59,5 +70,9 @@ app.post('/api/test-auth', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Test server running on port ${PORT}`);
+  console.log(`🚀 Test server running on port ${PORT}`);
+  console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔑 Supabase URL: ${process.env.SUPABASE_URL ? 'Set' : 'Missing'}`);
+  console.log(`🔑 Supabase Key: ${process.env.SUPABASE_ANON_KEY ? 'Set' : 'Missing'}`);
 });
