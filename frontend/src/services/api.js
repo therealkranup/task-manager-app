@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Production backend URL - update this with your Railway deployment URL
-const PRODUCTION_API_URL = 'https://your-backend-name.railway.app/api';
+// Production backend URL - pointing to Render deployment
+const PRODUCTION_API_URL = 'https://task-manager-app-tpdd.onrender.com/api';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 
   (process.env.NODE_ENV === 'production' ? PRODUCTION_API_URL : 'http://localhost:5000/api');
 
