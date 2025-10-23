@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
@@ -24,12 +24,16 @@ app.use(express.json());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // Database setup
-const dbPath = path.join(__dirname, 'tasks.db');
-const db = new sqlite3.Database(dbPath);
+// Use in-memory database for Render deployment (data will reset on restart)
+// For production, consider using Supabase PostgreSQL instead
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? ':memory:' 
+  : path.join(__dirname, 'tasks.db');
+const db = new Database(dbPath);
 
 // Create tasks table if it doesn't exist, and ensure user_id column exists
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS tasks (
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     description TEXT,
@@ -40,8 +44,14 @@ db.serialize(() => {
   )`);
 
   // Try to add user_id if table existed without it (ignore error if already there)
-  db.run(`ALTER TABLE tasks ADD COLUMN user_id TEXT`, () => {});
-});
+  try {
+    db.exec(`ALTER TABLE tasks ADD COLUMN user_id TEXT`);
+  } catch (e) {
+    // Column already exists, ignore error
+  }
+} catch (error) {
+  console.error('Database initialization error:', error);
+}
 
 // Auth middleware: requires Bearer token, resolves Supabase user
 async function requireAuth(req, res, next) {
@@ -62,7 +72,22 @@ async function requireAuth(req, res, next) {
 
 // Public route
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Task Manager API is running' });
+  res.json({ 
+    status: 'OK', 
+    message: 'Task Manager API is running',
+    environment: process.env.NODE_ENV || 'development',
+    database: dbPath,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Root route for Render health checks
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Task Manager Backend API',
+    health: '/api/health',
+    docs: '/api/tasks'
+  });
 });
 
 // All routes below this line require auth
@@ -70,136 +95,136 @@ app.use('/api/tasks', requireAuth);
 
 // GET /api/tasks - Get all tasks for the authenticated user
 app.get('/api/tasks', (req, res) => {
-  db.all('SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC', [req.user.id], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  try {
+    const stmt = db.prepare('SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC');
+    const rows = stmt.all(req.user.id);
     res.json(rows);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/tasks/:id - Get a specific task (owned by user)
 app.get('/api/tasks/:id', (req, res) => {
-  const { id } = req.params;
-  db.get('SELECT * FROM tasks WHERE id = ? AND user_id = ?', [id, req.user.id], (err, row) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?');
+    const row = stmt.get(id, req.user.id);
+    
     if (!row) {
       res.status(404).json({ error: 'Task not found' });
       return;
     }
     res.json(row);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/tasks - Create a new task for the user
 app.post('/api/tasks', (req, res) => {
-  const { title, description } = req.body;
-  
-  if (!title) {
-    res.status(400).json({ error: 'Title is required' });
-    return;
-  }
-
-  db.run(
-    'INSERT INTO tasks (title, description, completed, user_id) VALUES (?, ?, 0, ?)',
-    [title, description || '', req.user.id],
-    function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      res.status(201).json({ 
-        id: this.lastID, 
-        title, 
-        description: description || '', 
-        completed: false,
-        user_id: req.user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+  try {
+    const { title, description } = req.body;
+    
+    if (!title) {
+      res.status(400).json({ error: 'Title is required' });
+      return;
     }
-  );
+
+    const stmt = db.prepare('INSERT INTO tasks (title, description, completed, user_id) VALUES (?, ?, 0, ?)');
+    const result = stmt.run(title, description || '', req.user.id);
+    
+    res.status(201).json({ 
+      id: result.lastInsertRowid, 
+      title, 
+      description: description || '', 
+      completed: false,
+      user_id: req.user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // PUT /api/tasks/:id - Update a task (only if owned by user)
 app.put('/api/tasks/:id', (req, res) => {
-  const { id } = req.params;
-  const { title, description, completed } = req.body;
+  try {
+    const { id } = req.params;
+    const { title, description, completed } = req.body;
 
-  const updateFields = [];
-  const values = [];
+    const updateFields = [];
+    const values = [];
 
-  if (title !== undefined) {
-    updateFields.push('title = ?');
-    values.push(title);
-  }
-  if (description !== undefined) {
-    updateFields.push('description = ?');
-    values.push(description);
-  }
-  if (completed !== undefined) {
-    updateFields.push('completed = ?');
-    values.push(completed ? 1 : 0);
-  }
+    if (title !== undefined) {
+      updateFields.push('title = ?');
+      values.push(title);
+    }
+    if (description !== undefined) {
+      updateFields.push('description = ?');
+      values.push(description);
+    }
+    if (completed !== undefined) {
+      updateFields.push('completed = ?');
+      values.push(completed ? 1 : 0);
+    }
 
-  if (updateFields.length === 0) {
-    res.status(400).json({ error: 'No fields to update' });
-    return;
-  }
-
-  updateFields.push('updated_at = CURRENT_TIMESTAMP');
-  const query = `UPDATE tasks SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`;
-  values.push(id, req.user.id);
-
-  db.run(query, values, function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
+    if (updateFields.length === 0) {
+      res.status(400).json({ error: 'No fields to update' });
       return;
     }
-    if (this.changes === 0) {
+
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
+    const query = `UPDATE tasks SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`;
+    values.push(id, req.user.id);
+
+    const stmt = db.prepare(query);
+    const result = stmt.run(...values);
+    
+    if (result.changes === 0) {
       res.status(404).json({ error: 'Task not found' });
       return;
     }
     res.json({ message: 'Task updated successfully' });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // DELETE /api/tasks/:id - Delete a task (only if owned by user)
 app.delete('/api/tasks/:id', (req, res) => {
-  const { id } = req.params;
-  
-  db.run('DELETE FROM tasks WHERE id = ? AND user_id = ?', [id, req.user.id], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    if (this.changes === 0) {
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare('DELETE FROM tasks WHERE id = ? AND user_id = ?');
+    const result = stmt.run(id, req.user.id);
+    
+    if (result.changes === 0) {
       res.status(404).json({ error: 'Task not found' });
       return;
     }
     res.json({ message: 'Task deleted successfully' });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`API endpoints available at http://localhost:${PORT}/api`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Database: ${dbPath}`);
 });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\nShutting down server...');
-  db.close((err) => {
-    if (err) {
-      console.error('Error closing database:', err.message);
-    } else {
-      console.log('Database connection closed.');
-    }
-    process.exit(0);
-  });
+  try {
+    db.close();
+    console.log('Database connection closed.');
+  } catch (err) {
+    console.error('Error closing database:', err.message);
+  }
+  process.exit(0);
 });
