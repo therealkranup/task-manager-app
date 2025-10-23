@@ -9,19 +9,33 @@ function TestAuth() {
 
   const handleLogin = async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Try to get existing session first
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        setSession(sessionData.session);
+        setAuthToken(sessionData.session.access_token);
+        setTestResult('Using existing session! Token: ' + (sessionData.session.access_token ? 'Present' : 'Missing'));
+        return;
+      }
+      
+      // If no session, try to sign up a test user
+      const { data, error } = await supabase.auth.signUp({
         email: 'test@example.com',
         password: 'password123'
       });
       
       if (error) {
-        setTestResult('Login error: ' + error.message);
+        setTestResult('Signup error: ' + error.message + '. Try logging in with your real account first.');
         return;
       }
       
-      setSession(data.session);
-      setAuthToken(data.session.access_token);
-      setTestResult('Login successful! Token: ' + (data.session.access_token ? 'Present' : 'Missing'));
+      if (data.session) {
+        setSession(data.session);
+        setAuthToken(data.session.access_token);
+        setTestResult('Signup successful! Token: ' + (data.session.access_token ? 'Present' : 'Missing'));
+      } else {
+        setTestResult('Signup successful but no session. Check your email for confirmation.');
+      }
     } catch (err) {
       setTestResult('Login exception: ' + err.message);
     }
@@ -30,10 +44,15 @@ function TestAuth() {
   const testHeaders = async () => {
     try {
       setLoading(true);
+      // First test if backend is reachable
+      const healthResponse = await api.get('/health');
+      setTestResult('Backend health: ' + JSON.stringify(healthResponse.data, null, 2) + '\n\n');
+      
+      // Then test headers
       const response = await api.get('/test-headers');
-      setTestResult('Headers test: ' + JSON.stringify(response.data, null, 2));
+      setTestResult(prev => prev + 'Headers test: ' + JSON.stringify(response.data, null, 2));
     } catch (err) {
-      setTestResult('Headers test error: ' + err.message);
+      setTestResult('Headers test error: ' + err.message + '\n\nBackend URL: ' + api.defaults.baseURL);
     } finally {
       setLoading(false);
     }
