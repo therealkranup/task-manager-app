@@ -3,7 +3,8 @@ import axios from 'axios';
 // Production backend URL - pointing to Render deployment
 // FORCE REBUILD - API URL fix
 const PRODUCTION_API_URL = 'https://task-manager-app-tpdd.onrender.com/api';
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || PRODUCTION_API_URL;
+// Force production URL - ignore environment variable
+const API_BASE_URL = PRODUCTION_API_URL;
 
 console.log('🔧 API Configuration:');
 console.log('REACT_APP_API_BASE_URL:', process.env.REACT_APP_API_BASE_URL);
