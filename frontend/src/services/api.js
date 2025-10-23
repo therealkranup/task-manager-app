@@ -12,6 +12,9 @@ const api = axios.create({
   },
 });
 
+// Export api for debugging
+export { api };
+
 // Allow setting token from outside
 export const setAuthToken = (token) => {
   console.log('🔑 Setting auth token:', token ? 'Present' : 'Missing');

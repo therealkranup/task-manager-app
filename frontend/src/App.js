@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './services/supabase';
-import { setAuthToken, tasksAPI } from './services/api';
+import { setAuthToken, tasksAPI, api } from './services/api';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import Auth from './components/Auth';
@@ -28,12 +28,18 @@ function App() {
     init();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, _session) => {
+      console.log('🔄 Auth state changed:', _event, _session?.user?.id);
       setSession(_session);
-      setAuthToken(_session?.access_token || null);
+      const token = _session?.access_token || null;
+      setAuthToken(token);
       if (!_session) {
         setTasks([]);
       } else {
-        fetchTasks();
+        // Wait a bit for state to update, then fetch tasks
+        setTimeout(() => {
+          console.log('🔄 Calling fetchTasks after auth change');
+          fetchTasks();
+        }, 100);
       }
     });
 
@@ -48,8 +54,17 @@ function App() {
       console.log('❌ No session, skipping fetchTasks');
       return;
     }
+    
+    // Check if token is set
+    const currentToken = api.defaults.headers.common['Authorization'];
+    if (!currentToken) {
+      console.log('❌ No token in API headers, setting token from session');
+      setAuthToken(session.access_token);
+    }
+    
     try {
       console.log('🔄 Fetching tasks for session:', session.user?.id);
+      console.log('🔑 Current API headers:', api.defaults.headers.common);
       setLoading(true);
       const response = await tasksAPI.getAll();
       console.log('✅ Tasks fetched successfully:', response.data);
