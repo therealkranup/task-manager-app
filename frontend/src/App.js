@@ -72,7 +72,8 @@ function App() {
       setError(null);
     } catch (err) {
       console.log('❌ Failed to fetch tasks:', err);
-      setError('Failed to fetch tasks. Is the backend running?');
+      console.log('❌ Error details:', err.response?.data);
+      setError('Failed to fetch tasks: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
@@ -80,11 +81,15 @@ function App() {
 
   const handleCreateTask = async (taskData) => {
     try {
+      console.log('🔄 Creating task:', taskData);
       const response = await tasksAPI.create(taskData);
+      console.log('✅ Task created successfully:', response.data);
       setTasks(prev => [response.data, ...prev]);
       setError(null);
-    } catch {
-      setError('Failed to create task');
+    } catch (err) {
+      console.log('❌ Failed to create task:', err);
+      console.log('❌ Error details:', err.response?.data);
+      setError('Failed to create task: ' + (err.response?.data?.error || err.message));
     }
   };
 
