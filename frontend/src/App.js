@@ -6,6 +6,8 @@ import TaskList from './components/TaskList';
 import Auth from './components/Auth';
 import './styles/index.css';
 
+// Redeploy trigger - Vercel build settings configured
+
 function App() {
   const [session, setSession] = useState(null);
   const [tasks, setTasks] = useState([]);
