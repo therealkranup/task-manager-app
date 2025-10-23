@@ -6,26 +6,52 @@ function TestAuth() {
   const [session, setSession] = useState(null);
   const [testResult, setTestResult] = useState('');
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      setTestResult('Please enter email and password');
+      return;
+    }
+    
     try {
-      // Try to get existing session first
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        setSession(sessionData.session);
-        setAuthToken(sessionData.session.access_token);
-        setTestResult('Using existing session! Token: ' + (sessionData.session.access_token ? 'Present' : 'Missing'));
-        return;
-      }
-      
-      // If no session, try to sign up a test user
-      const { data, error } = await supabase.auth.signUp({
-        email: 'test@example.com',
-        password: 'password123'
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
       });
       
       if (error) {
-        setTestResult('Signup error: ' + error.message + '. Try logging in with your real account first.');
+        setTestResult('Login error: ' + error.message);
+        return;
+      }
+      
+      setSession(data.session);
+      setAuthToken(data.session.access_token);
+      setTestResult('Login successful! Token: ' + (data.session.access_token ? 'Present' : 'Missing'));
+    } catch (err) {
+      setTestResult('Login exception: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async () => {
+    if (!email || !password) {
+      setTestResult('Please enter email and password');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signUp({
+        email: email,
+        password: password
+      });
+      
+      if (error) {
+        setTestResult('Signup error: ' + error.message);
         return;
       }
       
@@ -37,7 +63,9 @@ function TestAuth() {
         setTestResult('Signup successful but no session. Check your email for confirmation.');
       }
     } catch (err) {
-      setTestResult('Login exception: ' + err.message);
+      setTestResult('Signup exception: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,10 +109,45 @@ function TestAuth() {
     <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
       <h1>Auth Debug Test</h1>
       
+      {/* Login Form */}
+      <div style={{ marginBottom: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
+        <h3>Login/Signup</h3>
+        <div style={{ marginBottom: '10px' }}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+          />
+        </div>
+        <div>
+          <button 
+            onClick={handleLogin} 
+            disabled={loading}
+            style={{ marginRight: '10px', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+          <button 
+            onClick={handleSignup} 
+            disabled={loading}
+            style={{ padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}
+          >
+            {loading ? 'Signing up...' : 'Signup'}
+          </button>
+        </div>
+      </div>
+      
+      {/* Test Buttons */}
       <div style={{ marginBottom: '20px' }}>
-        <button onClick={handleLogin} style={{ marginRight: '10px', padding: '10px' }}>
-          Test Login
-        </button>
         <button onClick={testHeaders} style={{ marginRight: '10px', padding: '10px' }}>
           Test Headers
         </button>
