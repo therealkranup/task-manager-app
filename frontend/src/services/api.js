@@ -14,32 +14,54 @@ const api = axios.create({
 
 // Allow setting token from outside
 export const setAuthToken = (token) => {
+  console.log('🔑 Setting auth token:', token ? 'Present' : 'Missing');
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    console.log('✅ Authorization header set');
   } else {
     delete api.defaults.headers.common['Authorization'];
+    console.log('❌ Authorization header removed');
   }
 };
 
 // Tasks API
 export const tasksAPI = {
   // Get all tasks
-  getAll: () => api.get('/tasks'),
+  getAll: () => {
+    console.log('📡 API: Getting all tasks');
+    console.log('Headers:', api.defaults.headers);
+    return api.get('/tasks');
+  },
   
   // Get a specific task
-  getById: (id) => api.get(`/tasks/${id}`),
+  getById: (id) => {
+    console.log('📡 API: Getting task', id);
+    return api.get(`/tasks/${id}`);
+  },
   
   // Create a new task
-  create: (taskData) => api.post('/tasks', taskData),
+  create: (taskData) => {
+    console.log('📡 API: Creating task', taskData);
+    return api.post('/tasks', taskData);
+  },
   
   // Update a task
-  update: (id, taskData) => api.put(`/tasks/${id}`, taskData),
+  update: (id, taskData) => {
+    console.log('📡 API: Updating task', id, taskData);
+    return api.put(`/tasks/${id}`, taskData);
+  },
   
   // Delete a task
-  delete: (id) => api.delete(`/tasks/${id}`),
+  delete: (id) => {
+    console.log('📡 API: Deleting task', id);
+    return api.delete(`/tasks/${id}`);
+  },
   
   // Toggle task completion
-  toggleComplete: (id, completed) => api.put(`/tasks/${id}`, { completed }),
+  toggleComplete: (id, completed) => {
+    console.log('📡 API: Toggling task', id, 'to', completed);
+    return api.put(`/tasks/${id}`, { completed });
+  },
 };
 
 export default api;

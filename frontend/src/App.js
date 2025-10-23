@@ -44,13 +44,19 @@ function App() {
   }, []);
 
   const fetchTasks = async () => {
-    if (!session) return;
+    if (!session) {
+      console.log('❌ No session, skipping fetchTasks');
+      return;
+    }
     try {
+      console.log('🔄 Fetching tasks for session:', session.user?.id);
       setLoading(true);
       const response = await tasksAPI.getAll();
+      console.log('✅ Tasks fetched successfully:', response.data);
       setTasks(response.data);
       setError(null);
     } catch (err) {
+      console.log('❌ Failed to fetch tasks:', err);
       setError('Failed to fetch tasks. Is the backend running?');
     } finally {
       setLoading(false);

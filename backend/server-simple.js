@@ -30,15 +30,44 @@ async function requireAuth(req, res, next) {
   try {
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    if (!token) return res.status(401).json({ error: 'Missing Authorization header' });
+    
+    console.log('=== AUTH DEBUG ===');
+    console.log('Auth header:', auth);
+    console.log('Token present:', !!token);
+    console.log('Token length:', token ? token.length : 0);
+    
+    if (!token) {
+      console.log('❌ No token provided');
+      return res.status(401).json({ error: 'Missing Authorization header' });
+    }
 
+    console.log('🔍 Validating token with Supabase...');
     const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) return res.status(401).json({ error: 'Invalid or expired token' });
+    
+    console.log('Supabase response:', {
+      hasData: !!data,
+      hasUser: !!data?.user,
+      userId: data?.user?.id,
+      error: error?.message
+    });
+    
+    if (error) {
+      console.log('❌ Supabase error:', error.message);
+      return res.status(401).json({ error: 'Invalid or expired token', details: error.message });
+    }
+    
+    if (!data?.user) {
+      console.log('❌ No user data from Supabase');
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
 
     req.user = { id: data.user.id };
+    console.log('✅ Auth successful for user:', data.user.id);
+    console.log('==================');
     next();
   } catch (e) {
-    res.status(401).json({ error: 'Unauthorized' });
+    console.log('❌ Auth exception:', e.message);
+    res.status(401).json({ error: 'Unauthorized', details: e.message });
   }
 }
 
