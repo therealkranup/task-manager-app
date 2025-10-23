@@ -95,7 +95,9 @@ app.use('/api/tasks', requireAuth);
 
 // GET /api/tasks - Get all tasks for the authenticated user
 app.get('/api/tasks', (req, res) => {
+  console.log('📋 GET /api/tasks - User:', req.user.id);
   const userTasks = tasks.filter(task => task.user_id === req.user.id);
+  console.log('📋 Found tasks:', userTasks.length);
   res.json(userTasks);
 });
 
@@ -113,9 +115,11 @@ app.get('/api/tasks/:id', (req, res) => {
 
 // POST /api/tasks - Create a new task
 app.post('/api/tasks', (req, res) => {
+  console.log('➕ POST /api/tasks - User:', req.user.id, 'Data:', req.body);
   const { title, description } = req.body;
   
   if (!title) {
+    console.log('❌ No title provided');
     res.status(400).json({ error: 'Title is required' });
     return;
   }
@@ -131,6 +135,7 @@ app.post('/api/tasks', (req, res) => {
   };
 
   tasks.push(task);
+  console.log('✅ Task created:', task);
   res.status(201).json(task);
 });
 
