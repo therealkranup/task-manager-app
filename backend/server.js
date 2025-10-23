@@ -8,8 +8,16 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy for Railway deployment
+app.set('trust proxy', 1);
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://task-manager-app-blush-nine.vercel.app', 'https://task-manager-app-git-main-therealkranups-projects.vercel.app']
+    : true,
+  credentials: true
+}));
 app.use(express.json());
 
 // Supabase client (server-side, using anon key is fine for verifying user token)
